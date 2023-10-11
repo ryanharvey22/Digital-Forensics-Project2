@@ -22,33 +22,87 @@
 import sys
 import os
 
-def dump_to_string(disk_file):
+class Partition:
+    def __init__(self):
+        pass
 
-    os.system(f"hexdump -C -s $((0*512)) -n $((1*512)) {disk_file}")
-    output = os.popen(f"hexdump -s $((0*512)) -n $((1*512)) {disk_file}").read().split("\n")
-    bytes = {}
-
-    for line in output:
-        
+# calls hexdump for given range and puts offsets and bytes into respective lists.
+def hexdump_to_list(disk, start_sector, skip_sector):
+    output = os.popen(f"hexdump -s $(({start_sector}*512)) -n $(({skip_sector}*512)) {disk}").read().split("\n")
+    bytes = []
+    offsets = []
+    for i, line in enumerate(output):
         s = line.split()
-
         if len(s) > 1:
-            ls = []
-            for x in s[1:]:
-                if len(x) == 4:
-                    ls.append(x[0:2])
-                    ls.append(x[2:4])
+            bytes.append([])
+            for x in s:
+                if len(x) > 4:
+                    offsets.append(x)
+                elif len(x) == 4:
+                    bytes[i].append(x[2:4])
+                    bytes[i].append(x[0:2])
                 else:
                     print("Error processing bytes")
                     exit()
-            bytes[s[0]] = ls
-
         elif len(s) == 1:
-            bytes[s[0]] = None
+            offsets.append(s[0])
+            bytes.append(['']*16)
+    return offsets, bytes
 
-    return bytes
+def find_ascii(str, dump:dict):
+    for addr in dump:
+        hex_string = ''.join([byte.hex() for byte in dump[addr]])
+        hex_num = int(hex_string,16)
+        print(hex_string)
+        if hex_string.decode("ASCII").contains(str):
+            return addr
+    return -1
+# get boot sector info
 
-def get_boot_sector(s):
-    pass
 
-print(dump_to_string("Project2.dd"))
+def get_diskinfo(disk) -> Partition():
+
+    partition = Partition()
+
+    # bytes come in hexdump format
+    offsets, bytes = hexdump_to_list(disk, 0, 1)
+    temp = bytes[0][11:13]
+    partition.bytes_per_sector = int(''.join(temp[::-1]), 16)
+
+    partition.sectors_per_cluster = int(bytes[0][13], 16)
+    
+    temp = bytes[0][14:]
+    partition.reserved_sectors = int(''.join(temp[::-1]), 16)
+
+    partition.num_FATs = int(bytes[1][0], 16)
+    
+    temp = bytes[1][3:5]
+    partition.num_sectors = int(''.join(temp[::-1]), 16)
+    
+    temp = bytes[1][6:8]
+    partition.num_sectors_per_FAT = int(''.join(temp[::-1]), 16)
+    
+    temp = bytes[1][12:]
+    partition.num_sectors_before_partition = int(''.join(temp[::-1]), 16)
+
+    return partition
+
+info = get_diskinfo("Project2.dd")
+
+print(info.bytes_per_sector)
+print(info.sectors_per_cluster)
+print(info.reserved_sectors)
+print(info.num_FATs)
+print(info.num_sectors)
+print(info.num_sectors_per_FAT)
+print(info.num_sectors_before_partition)
+print()
+
+sFAT = info.reserved_sectors
+nFAT = info.num_sectors_per_FAT
+sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
+nroot = 32
+
+root = hexdump_to_list("Project2.dd", sFAT, nFAT)
+FAT = hexdump_to_list("Project2.dd", sFAT, nFAT)
+
