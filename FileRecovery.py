@@ -24,30 +24,31 @@ import os
 
 def dump_to_string(disk_file):
 
-    output = os.popen(f"hexdump -s $((0*512)) -n $((1*512)) {disk_file}").read().split()
+    os.system(f"hexdump -C -s $((0*512)) -n $((1*512)) {disk_file}")
+    output = os.popen(f"hexdump -s $((0*512)) -n $((1*512)) {disk_file}").read().split("\n")
     bytes = {}
 
-    i = 0
-    print(output)
-    print()
-    for _ in output:
-        if len(output[i]) == 7:
-            bytes[output[i]] = []
-            for four in output[i+1:i+8]:
-                if len(four) == 4:
-                    bytes[output[i]].append(four[0:2])
-                    bytes[output[i]].append(four[2:4])
+    for line in output:
+        
+        s = line.split()
+
+        if len(s) > 1:
+            ls = []
+            for x in s[1:]:
+                if len(x) == 4:
+                    ls.append(x[0:2])
+                    ls.append(x[2:4])
                 else:
                     print("Error processing bytes")
                     exit()
-        else:
-            print("Error, should by address part")
+            bytes[s[0]] = ls
 
-        i = i + 9
-        
+        elif len(s) == 1:
+            bytes[s[0]] = None
+
     return bytes
 
-def get_boot_sector(disk_file):
+def get_boot_sector(s):
     pass
 
 print(dump_to_string("Project2.dd"))
