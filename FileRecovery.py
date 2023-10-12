@@ -22,6 +22,14 @@
 import sys
 import os
 
+if len(sys.argv) == 2:
+    DISK = sys.argv[1]
+elif len(sys.argv) < 2:
+    print("Error, Please provide disk")
+    exit(1)
+else:
+    print("Error, Provided too many arguments. Ignoring extra")
+
 class Partition:
     def __init__(self):
         pass
@@ -53,7 +61,7 @@ def hexdump_to_list(disk, start_sector, skip_sector):
                     bytes[i].append(x[0:2])
                 else:
                     print("Error processing bytes")
-                    exit()
+                    exit(1)
         elif len(s) == 1:
             offsets.append(s[0])
             bytes.append(['']*16)
@@ -93,11 +101,12 @@ nFAT = info.num_sectors_per_FAT
 offset_FAT1, bytes_FAT1 = hexdump_to_list("Project2.dd", sFAT, nFAT)
 
 # first find sectors before first data in data section
+
 count = 0
 found_start = False
 for i in range(len(bytes_FAT1)):
-    for j in range(len(bytes_FAT1[0])):
-        if bytes_FAT1[i][j:j+2] == 'ff ff' or bytes_FAT1[i][j:j+2] == 'f8 ff':
+    for j in range(0, len(bytes_FAT1[0]), 2):
+        if ''.join(bytes_FAT1[i][j:j+2]) == 'ffff' or ''.join(bytes_FAT1[i][j:j+2]) == 'f8ff':
             count += 1
         else:
             found_start = True
@@ -105,9 +114,33 @@ for i in range(len(bytes_FAT1)):
     if found_start:
         break
 
-buffer_before_data = (count - 2) * info.sectors_per_cluster # converts to sectors
+start_fat_data = count
+buffer_before_data = (start_fat_data - 2) * info.sectors_per_cluster # converts to sectors
+print("\nBuffer Before Data: ", buffer_before_data)
 
+count = -2
+files = []
+found_end = False
+for i in range(len(bytes_FAT1)):
+    for j in range(0, len(bytes_FAT1[0]), 2):
+        count += 1
+        if count > start_fat_data:
+            if ''.join(bytes_FAT1[i][j:j+2]) == "ffff":
+                try:
+                    found_end = bytes_FAT1[i][j+3] == "ff"
+                except:
+                    found_end = bytes_FAT1[i+1][0] == "ff"
+                files.append((count, offset_FAT1[i]))
+                if found_end:
+                    break
+    if found_end:
+        break
 
+os.mkdir("RecoveredFiles")
+for file in files:
+    #os.system(f"dd if={DISK} of={file.name} bs={partition.bytes_per_sector} skip={} count={}")
+    pass
+    
 
 sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
 nroot = 32
