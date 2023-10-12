@@ -90,10 +90,23 @@ info = get_diskinfo("Project2.dd")
 
 sFAT = info.reserved_sectors
 nFAT = info.num_sectors_per_FAT
-FAT1 = hexdump_to_list("Project2.dd", sFAT, nFAT)
+offset_FAT1, bytes_FAT1 = hexdump_to_list("Project2.dd", sFAT, nFAT)
 
-for _ in range(len(FAT1)):
-    pass
+# first find sectors before first data in data section
+count = 0
+found_start = False
+for i in range(len(bytes_FAT1)):
+    for j in range(len(bytes_FAT1[0])):
+        if bytes_FAT1[i][j:j+2] == 'ff ff' or bytes_FAT1[i][j:j+2] == 'f8 ff':
+            count += 1
+        else:
+            found_start = True
+            break
+    if found_start:
+        break
+
+buffer_before_data = (count - 2) * info.sectors_per_cluster # converts to sectors
+
 
 
 sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
