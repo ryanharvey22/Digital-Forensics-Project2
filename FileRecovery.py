@@ -26,6 +26,16 @@ class Partition:
     def __init__(self):
         pass
 
+def dec_string(s):
+    output = ''
+    for i in range(0, len(s), 2):
+        n = int(''.join(s[i:i+2]), 16)
+        try:
+            output += chr(n)
+        except:
+            pass
+    return output
+
 # calls hexdump for given range and puts offsets and bytes into respective lists.
 def hexdump_to_list(disk, start_sector, skip_sector):
     output = os.popen(f"hexdump -s $(({start_sector}*512)) -n $(({skip_sector}*512)) {disk}").read().split("\n")
@@ -48,17 +58,6 @@ def hexdump_to_list(disk, start_sector, skip_sector):
             offsets.append(s[0])
             bytes.append(['']*16)
     return offsets, bytes
-
-def find_ascii(str, dump:dict):
-    for addr in dump:
-        hex_string = ''.join([byte.hex() for byte in dump[addr]])
-        hex_num = int(hex_string,16)
-        print(hex_string)
-        if hex_string.decode("ASCII").contains(str):
-            return addr
-    return -1
-# get boot sector info
-
 
 def get_diskinfo(disk) -> Partition():
 
@@ -89,20 +88,41 @@ def get_diskinfo(disk) -> Partition():
 
 info = get_diskinfo("Project2.dd")
 
-print(info.bytes_per_sector)
-print(info.sectors_per_cluster)
-print(info.reserved_sectors)
-print(info.num_FATs)
-print(info.num_sectors)
-print(info.num_sectors_per_FAT)
-print(info.num_sectors_before_partition)
-print()
-
 sFAT = info.reserved_sectors
 nFAT = info.num_sectors_per_FAT
+FAT1 = hexdump_to_list("Project2.dd", sFAT, nFAT)
+
+for _ in range(len(FAT1)):
+    pass
+
+
 sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
 nroot = 32
+raw_root = hexdump_to_list("Project2.dd", sroot, nroot)
 
-root = hexdump_to_list("Project2.dd", sFAT, nFAT)
-FAT = hexdump_to_list("Project2.dd", sFAT, nFAT)
+file_names = []
+i = 0
+root = raw_root[1]
+while i < len(root):
+    if root[i][0] == '41': # Normal File
+        temp = ''.join(root[i][1:] + root[i+1][:8])
+        file_names.append(dec_string(temp))
+        i = i + 4
+    elif root[i][0] == '2e': # Directory
+        temp = ''.join(root[i][1:] + root[i+1][:8])
+        file_names.append(dec_string(temp))
+        i = i + 4
+    elif root[i][0] == 'e5': # File Name Used but Deleted
+        temp = ''.join(root[i][1:] + root[i+1][:8])
+        file_names.append(dec_string(temp))
+        i = i + 4
+    elif root[i][0] == '00': # File Name Never Used
+        temp = ''.join(root[i][1:] + root[i+1][:8])
+        file_names.append(dec_string(temp))
+        i = i + 4
+    else:
+        i = i + 1
 
+print("\nfound file names:\n")
+for file in file_names:
+    print("\t"+file)
