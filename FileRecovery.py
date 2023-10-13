@@ -107,14 +107,12 @@ for i in range(len(bytes_FAT1)):
     if found_start:
         break
 
-start_fat_data = count
-print(start_fat_data)
-count = 0
-files = [(start_fat_data, offset_FAT1[0])]
+count = -count
+files = [(0, offset_FAT1[0])]
 found_end = False
 for i in range(len(bytes_FAT1)):
     for j in range(0, len(bytes_FAT1[0]), 2):
-        if count >= start_fat_data:
+        if count >= 0:
             if ''.join(bytes_FAT1[i][j:j+2]) == "ffff":
                 try:
                     found_end = bytes_FAT1[i][j+3] == "ff"
@@ -143,8 +141,10 @@ for i in range(len(bytes_FAT1)):
 # for file in file_names:
 #     print("\t"+file)
 
+print(len(files) - 1)
 if not os.path.exists("RecoveredFiles"):
     os.mkdir("RecoveredFiles")
-for i, file in enumerate(files):
-    skip = (file[0] - 2) * info.sectors_per_cluster
-    os.popen(f"dd if={DISK} of=RecoveredFiles/File{i+1} bs={info.bytes_per_sector} skip={skip} count={count}")
+for i in range(len(files) - 1):
+    skip =  info.reserved_sectors + info.num_sectors_per_FAT * 2 + 32 + files[i][0] * info.sectors_per_cluster
+    length = (files[i+1][0] - files[i][0]) * info.sectors_per_cluster
+    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={info.bytes_per_sector} skip={skip} count={length}")
