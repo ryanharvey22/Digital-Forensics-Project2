@@ -25,24 +25,15 @@ import os
 if len(sys.argv) == 2:
     DISK = sys.argv[1]
 elif len(sys.argv) < 2:
-    print("Error, Please provide disk")
-    exit(1)
+    # print("Error, Please provide disk")
+    # exit(1)
+    DISK = "Project2.dd"
 else:
     print("Error, Provided too many arguments. Ignoring extra")
 
-class Partition:
+class Struct:
     def __init__(self):
         pass
-
-def dec_string(s):
-    output = ''
-    for i in range(0, len(s), 2):
-        n = int(''.join(s[i:i+2]), 16)
-        try:
-            output += chr(n)
-        except:
-            pass
-    return output
 
 # calls hexdump for given range and puts offsets and bytes into respective lists.
 def hexdump_to_list(disk, start_sector, skip_sector):
@@ -67,38 +58,40 @@ def hexdump_to_list(disk, start_sector, skip_sector):
             bytes.append(['']*16)
     return offsets, bytes
 
-def get_diskinfo(disk) -> Partition():
+def hex_list_to_ascii(x:list) -> str:
+    output = ""
+    for i in x:
+        output += chr(int(i, 16))
+    return output
 
-    partition = Partition()
 
-    # bytes come in hexdump format
-    offsets, bytes = hexdump_to_list(disk, 0, 1)
-    temp = bytes[0][11:13]
-    partition.bytes_per_sector = int(''.join(temp[::-1]), 16)
+info = Struct()
 
-    partition.sectors_per_cluster = int(bytes[0][13], 16)
-    
-    temp = bytes[0][14:]
-    partition.reserved_sectors = int(''.join(temp[::-1]), 16)
+# bytes come in hexdump format
+offsets, bytes_boot = hexdump_to_list(DISK, 0, 1)
+temp = bytes_boot[0][11:13]
+info.bytes_per_sector = int(''.join(temp[::-1]), 16)
 
-    partition.num_FATs = int(bytes[1][0], 16)
-    
-    temp = bytes[1][3:5]
-    partition.num_sectors = int(''.join(temp[::-1]), 16)
-    
-    temp = bytes[1][6:8]
-    partition.num_sectors_per_FAT = int(''.join(temp[::-1]), 16)
-    
-    temp = bytes[1][12:]
-    partition.num_sectors_before_partition = int(''.join(temp[::-1]), 16)
+info.sectors_per_cluster = int(bytes_boot[0][13], 16)
 
-    return partition
+temp = bytes_boot[0][14:]
+info.reserved_sectors = int(''.join(temp[::-1]), 16)
 
-info = get_diskinfo("Project2.dd")
+info.num_FATs = int(bytes_boot[1][0], 16)
+
+temp = bytes_boot[1][3:5]
+info.num_sectors = int(''.join(temp[::-1]), 16)
+
+temp = bytes_boot[1][6:8]
+info.num_sectors_per_FAT = int(''.join(temp[::-1]), 16)
+
+temp = bytes_boot[1][12:]
+info.num_sectors_before_partition = int(''.join(temp[::-1]), 16)
+
 
 sFAT = info.reserved_sectors
 nFAT = info.num_sectors_per_FAT
-offset_FAT1, bytes_FAT1 = hexdump_to_list("Project2.dd", sFAT, nFAT)
+offset_FAT1, bytes_FAT1 = hexdump_to_list(DISK, sFAT, nFAT)
 
 # first find sectors before first data in data section
 
@@ -115,60 +108,43 @@ for i in range(len(bytes_FAT1)):
         break
 
 start_fat_data = count
-buffer_before_data = (start_fat_data - 2) * info.sectors_per_cluster # converts to sectors
-print("\nBuffer Before Data: ", buffer_before_data)
-
-count = -2
-files = []
+print(start_fat_data)
+count = 0
+files = [(start_fat_data, offset_FAT1[0])]
 found_end = False
 for i in range(len(bytes_FAT1)):
     for j in range(0, len(bytes_FAT1[0]), 2):
-        count += 1
-        if count > start_fat_data:
+        if count >= start_fat_data:
             if ''.join(bytes_FAT1[i][j:j+2]) == "ffff":
                 try:
                     found_end = bytes_FAT1[i][j+3] == "ff"
                 except:
                     found_end = bytes_FAT1[i+1][0] == "ff"
-                files.append((count, offset_FAT1[i]))
+                files.append((count, int(offset_FAT1[i], 16) + j))
                 if found_end:
                     break
+        count += 1
     if found_end:
         break
 
-os.mkdir("RecoveredFiles")
-for file in files:
-    #os.system(f"dd if={DISK} of={file.name} bs={partition.bytes_per_sector} skip={} count={}")
-    pass
-    
 
-sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
-nroot = 32
-raw_root = hexdump_to_list("Project2.dd", sroot, nroot)
+# sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
+# nroot = 32
+# offset_root, bytes_root = hexdump_to_list(DISK, sroot, nroot)
+#
+# file_names = []
+# for i in range(len(bytes_root)):
+#     if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
+#         if bytes_root[i+1][0] in ['00','e5','2e','51']:
+#             name, ext = bytes_root[i+1][1:9], bytes_root[i+1][9:12]
+#             file_names.append(hex_list_to_ascii(name) + "." + hex_list_to_ascii(ext))
+#
+# print("\nfound file names:\n")
+# for file in file_names:
+#     print("\t"+file)
 
-file_names = []
-i = 0
-root = raw_root[1]
-while i < len(root):
-    if root[i][0] == '41': # Normal File
-        temp = ''.join(root[i][1:] + root[i+1][:8])
-        file_names.append(dec_string(temp))
-        i = i + 4
-    elif root[i][0] == '2e': # Directory
-        temp = ''.join(root[i][1:] + root[i+1][:8])
-        file_names.append(dec_string(temp))
-        i = i + 4
-    elif root[i][0] == 'e5': # File Name Used but Deleted
-        temp = ''.join(root[i][1:] + root[i+1][:8])
-        file_names.append(dec_string(temp))
-        i = i + 4
-    elif root[i][0] == '00': # File Name Never Used
-        temp = ''.join(root[i][1:] + root[i+1][:8])
-        file_names.append(dec_string(temp))
-        i = i + 4
-    else:
-        i = i + 1
-
-print("\nfound file names:\n")
-for file in file_names:
-    print("\t"+file)
+if not os.path.exists("RecoveredFiles"):
+    os.mkdir("RecoveredFiles")
+for i, file in enumerate(files):
+    skip = (file[0] - 2) * info.sectors_per_cluster
+    os.popen(f"dd if={DISK} of=RecoveredFiles/File{i+1} bs={info.bytes_per_sector} skip={skip} count={count}")
