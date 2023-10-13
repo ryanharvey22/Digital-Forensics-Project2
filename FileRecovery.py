@@ -126,25 +126,25 @@ for i in range(len(bytes_FAT1)):
         break
 
 
-# sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
-# nroot = 32
-# offset_root, bytes_root = hexdump_to_list(DISK, sroot, nroot)
-#
-# file_names = []
-# for i in range(len(bytes_root)):
-#     if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
-#         if bytes_root[i+1][0] in ['00','e5','2e','51']:
-#             name, ext = bytes_root[i+1][1:9], bytes_root[i+1][9:12]
-#             file_names.append(hex_list_to_ascii(name) + "." + hex_list_to_ascii(ext))
-#
-# print("\nfound file names:\n")
-# for file in file_names:
-#     print("\t"+file)
+sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
+nroot = 32
+offset_root, bytes_root = hexdump_to_list(DISK, sroot, nroot)
 
-print(len(files) - 1)
+file_names = []
+for i in range(len(bytes_root)):
+    if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
+        if bytes_root[i+1][0] in ['00','e5','2e','51']:
+            name, ext = bytes_root[i+1][1:9], bytes_root[i+1][9:12]
+            file_names.append(hex_list_to_ascii(name) + "." + hex_list_to_ascii(ext))
+
+print("\nfound file names:\n")
+for file in file_names:
+    print("\t"+file)
+
 if not os.path.exists("RecoveredFiles"):
     os.mkdir("RecoveredFiles")
 for i in range(len(files) - 1):
     skip =  info.reserved_sectors + info.num_sectors_per_FAT * 2 + 32 + files[i][0] * info.sectors_per_cluster
     length = (files[i+1][0] - files[i][0]) * info.sectors_per_cluster
-    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={info.bytes_per_sector} skip={skip} count={length}")
+    print(f"skip={skip}, count={length}")
+    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={info.bytes_per_sector} skip={skip} count={length} status=none")
