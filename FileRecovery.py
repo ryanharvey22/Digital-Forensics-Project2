@@ -17,10 +17,20 @@
 # File5.pdf, Start Offset: 0x100000, End Offset: 0x200000 
 # SHA-256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 
 #
-# Recovered files are located in ~/RecoveredFiles 
+# Recovered files are located in ~/RecoveredFiles
+
+# hexdump -C -s $((408*512)) -n $((32*512)) Project2.dd
+# binwalk -R "\x25\x50\x44\x46" combinedFiles
+# dd dd if=Project2.dd of=combinedFiles bs=512 skip=440 count=409000 status=none
+# dd if=Project2.dd bs=512 skip=440 count=409000 status=none | binwalk -R "\x25\x50\x44\x46" -
+
 
 import sys
 import os
+
+print("Checking Dependencies")
+if sys.platform != "linux":
+    print(os.system("binwalk"))
 
 if len(sys.argv) == 2:
     DISK = sys.argv[1]
@@ -31,9 +41,19 @@ elif len(sys.argv) < 2:
 else:
     print("Error, Provided too many arguments. Ignoring extra")
 
-class Struct:
-    def __init__(self):
-        pass
+FILE_SIGS = {
+    "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A" : "MPG",
+    "\x25\x50\x44\x46" : "PDF",
+    "\x42\x4D" : "BMP",
+    "\x47\x49\x46\x38\x37\x61" : "GIF",
+    "\x49\x46\x38\x39\x61" : "GIF",
+    "\xFF\xD8\xff\xE0" : "JPG",
+    "\x50\x4B\x03\x04\x14\x00\x06\x00": "DOCX",
+    " " : "AVI",
+    "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A": "PNG"
+}
+
+array = ["\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", "\x25\x50\x44\x46", "\x42\x4D"]
 
 # calls hexdump for given range and puts offsets and bytes into respective lists.
 def hexdump_to_list(disk, start_sector, skip_sector):
@@ -65,32 +85,32 @@ def hex_list_to_ascii(x:list) -> str:
     return output
 
 
-info = Struct()
-
 # bytes come in hexdump format
 offsets, bytes_boot = hexdump_to_list(DISK, 0, 1)
 temp = bytes_boot[0][11:13]
-info.bytes_per_sector = int(''.join(temp[::-1]), 16)
+bytes_per_sector = int(''.join(temp[::-1]), 16)
 
-info.sectors_per_cluster = int(bytes_boot[0][13], 16)
+sectors_per_cluster = int(bytes_boot[0][13], 16)
 
 temp = bytes_boot[0][14:]
-info.reserved_sectors = int(''.join(temp[::-1]), 16)
+reserved_sectors = int(''.join(temp[::-1]), 16)
 
-info.num_FATs = int(bytes_boot[1][0], 16)
+num_FATs = int(bytes_boot[1][0], 16)
 
 temp = bytes_boot[1][3:5]
-info.num_sectors = int(''.join(temp[::-1]), 16)
+num_sectors = int(''.join(temp[::-1]), 16)
+if num_sectors == 0:
+    num_sectors = 65535
 
 temp = bytes_boot[1][6:8]
-info.num_sectors_per_FAT = int(''.join(temp[::-1]), 16)
+num_sectors_per_FAT = int(''.join(temp[::-1]), 16)
 
 temp = bytes_boot[1][12:]
-info.num_sectors_before_partition = int(''.join(temp[::-1]), 16)
+num_sectors_before_partition = int(''.join(temp[::-1]), 16)
 
 
-sFAT = info.reserved_sectors
-nFAT = info.num_sectors_per_FAT
+sFAT = reserved_sectors
+nFAT = num_sectors_per_FAT
 offset_FAT1, bytes_FAT1 = hexdump_to_list(DISK, sFAT, nFAT)
 
 # first find sectors before first data in data section
@@ -126,25 +146,29 @@ for i in range(len(bytes_FAT1)):
         break
 
 
-sroot = info.reserved_sectors + info.num_sectors_per_FAT*2
+sroot = reserved_sectors + num_sectors_per_FAT*2
 nroot = 32
 offset_root, bytes_root = hexdump_to_list(DISK, sroot, nroot)
 
-file_names = []
-for i in range(len(bytes_root)):
-    if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
-        if bytes_root[i+1][0] in ['00','e5','2e','51']:
-            name, ext = bytes_root[i+1][1:9], bytes_root[i+1][9:12]
-            file_names.append(hex_list_to_ascii(name) + "." + hex_list_to_ascii(ext))
+# file_names = []
+# for i in range(len(bytes_root)):
+#     if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
+#         if bytes_root[i+1][0] in ['00','e5','2e','51']:
+#             name, ext = bytes_root[i+1][1:9], bytes_root[i+1][9:12]
+#             file_names.append(hex_list_to_ascii(name) + "." + hex_list_to_ascii(ext))
 
-print("\nfound file names:\n")
-for file in file_names:
-    print("\t"+file)
+# print("\nfound file names:\n")
+# for file in file_names:
+#     print("\t"+file)
+
+start_of_data = reserved_sectors + num_sectors_per_FAT * 2 + 32
+os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={bytes_per_sector} skip={skip} count={length} status=none")
+os.system(f"binwalk -R '\x25\x50\x44\x46' ")
 
 if not os.path.exists("RecoveredFiles"):
     os.mkdir("RecoveredFiles")
 for i in range(len(files) - 1):
-    skip =  info.reserved_sectors + info.num_sectors_per_FAT * 2 + 32 + files[i][0] * info.sectors_per_cluster
-    length = (files[i+1][0] - files[i][0]) * info.sectors_per_cluster
+    skip =  reserved_sectors + num_sectors_per_FAT * 2 + 32 + files[i][0] * sectors_per_cluster
+    length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
     print(f"skip={skip}, count={length}")
-    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={info.bytes_per_sector} skip={skip} count={length} status=none")
+    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={bytes_per_sector} skip={skip} count={length} status=none")
