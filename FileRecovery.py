@@ -20,10 +20,24 @@
 # Recovered files are located in ~/RecoveredFiles
 
 # hexdump -C -s $((408*512)) -n $((32*512)) Project2.dd
+# hexdump -C -s $((8*512)) -n $((200*512)) Project2.dd
 # binwalk -R "\x25\x50\x44\x46" combinedFiles
-# dd dd if=Project2.dd of=combinedFiles bs=512 skip=440 count=409000 status=none
+# dd if=Project2.dd of=combinedFiles bs=512 skip=440 count=409000 status=none
 # dd if=Project2.dd bs=512 skip=440 count=409000 status=none | binwalk -R "\x25\x50\x44\x46" -
 
+# Auburn.jpg
+# Bear.avi
+# Cities.pdf
+# Dice.png
+# Flags.jpg
+# Flower.bmp
+# Great.pdf                 All Files Found Manually for reference
+# Iron.jpg
+# Mandelbrot.jpg
+# Minion.gif
+# Ocean.avi
+# Quest.docx
+# Universe.mpg
 
 import sys
 import os
