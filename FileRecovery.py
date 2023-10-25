@@ -17,30 +17,11 @@
 # File5.pdf, Start Offset: 0x100000, End Offset: 0x200000 
 # SHA-256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 
 #
-# Recovered files are located in ~/RecoveredFiles
-
-# hexdump -C -s $((408*512)) -n $((32*512)) Project2.dd
-# hexdump -C -s $((8*512)) -n $((200*512)) Project2.dd
-# binwalk -R "\x25\x50\x44\x46" combinedFiles
-# dd if=Project2.dd of=combinedFiles bs=512 skip=440 count=409000 status=none
-# dd if=Project2.dd bs=512 skip=440 count=409000 status=none | binwalk -R "\x25\x50\x44\x46" -
-
-# Auburn.jpg
-# Bear.avi
-# Cities.pdf
-# Dice.png
-# Flags.jpg
-# Flower.bmp
-# Great.pdf                 All Files Found Manually for reference
-# Iron.jpg
-# Mandelbrot.jpg
-# Minion.gif
-# Ocean.avi
-# Quest.docx
-# Universe.mpg
+# Recovered files are located in ~/RecoveredFiles	
 
 import sys
 import os
+import hashlib
 
 print("Checking Dependencies")
 if sys.platform != "linux":
@@ -159,30 +140,35 @@ for i in range(len(bytes_FAT1)):
     if found_end:
         break
 
-
 sroot = reserved_sectors + num_sectors_per_FAT*2
 nroot = 32
 offset_root, bytes_root = hexdump_to_list(DISK, sroot, nroot)
 
-# file_names = []
-# for i in range(len(bytes_root)):
-#     if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
-#         if bytes_root[i+1][0] in ['00','e5','2e','51']:
-#             name, ext = bytes_root[i+1][1:9], bytes_root[i+1][9:12]
-#             file_names.append(hex_list_to_ascii(name) + "." + hex_list_to_ascii(ext))
+# lets change this to use the hex signatures, go by four and look for header and footer?
+file_names = []
+for i in range(len(bytes_root)):
+    if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
+        if bytes_root[i+1][0] in ['00','e5','2e','51']:
+            name, ext = bytes_root[i+1][1:9], bytes_root[i+1][9:12]
+            file_names.append(hex_list_to_ascii(name) + "." + hex_list_to_ascii(ext))
 
-# print("\nfound file names:\n")
-# for file in file_names:
-#     print("\t"+file)
+# start_of_data = reserved_sectors + num_sectors_per_FAT * 2 + 32
+# os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={bytes_per_sector} skip={skip} count={length} status=none")
+# os.system(f"binwalk -R '\x25\x50\x44\x46' ")
 
-start_of_data = reserved_sectors + num_sectors_per_FAT * 2 + 32
-os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={bytes_per_sector} skip={skip} count={length} status=none")
-os.system(f"binwalk -R '\x25\x50\x44\x46' ")
+exts_test = ["jpg", "avi", "pdf", "png", "jpg", "bmp", "pdf", "jpg", "jpg", "gif", "avi", "docx", "mpg"]
 
 if not os.path.exists("RecoveredFiles"):
     os.mkdir("RecoveredFiles")
 for i in range(len(files) - 1):
     skip =  reserved_sectors + num_sectors_per_FAT * 2 + 32 + files[i][0] * sectors_per_cluster
     length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
-    print(f"skip={skip}, count={length}")
-    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.jpg bs={bytes_per_sector} skip={skip} count={length} status=none")
+    #print(f"skip={skip}, count={length}")
+    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.{exts_test[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
+    temp = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{exts_test[i]}")
+
+    shasum = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{exts_test[i]}").read().split()[0]
+    print(f"\nFile{i+1}.{exts_test[i]}, Start Offset: {skip}, End Offset: {skip+length}")
+    print("SHA-256: ", shasum)
+    
+print()
