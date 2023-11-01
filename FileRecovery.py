@@ -2,6 +2,7 @@ import sys
 import os
 import hashlib
 import math
+import codecs
 
 print("Checking Dependencies")
 if len(sys.argv) == 2:
@@ -112,6 +113,7 @@ for i in range(len(bytes_FAT1)):
 
 file_lengths = []
 file_allocated = []
+file_names = []
 i = 1
 while i < len(bytes_root) - 1:
     # if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
@@ -120,8 +122,13 @@ while i < len(bytes_root) - 1:
         hex_string = file_size[3] + file_size[2] + file_size[1] + file_size[0]
         file_sizeInt = int(hex_string, 16)
         total_allocated = math.ceil(file_sizeInt / sectors_per_cluster) * sectors_per_cluster
+        file_name = ''.join(bytes_root[i+1][1:16])
+        # the below code is throwing an error because the Auburn file has 96 in the file name, which is not ascii
+        # need to somehow skip this (and remove the hex before it as well)
+        # file_name = codecs.decode(''.join(file_name), "hex").decode("ASCII")
         file_lengths.append(file_sizeInt)
         file_allocated.append(total_allocated)
+        file_names.append(file_name)
         i += 4    
     else:
         i += 1
