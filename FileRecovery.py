@@ -135,6 +135,16 @@ while i < len(bytes_root) - 1:
 
 # Start of data section = disk information sectors (sectors before partition) + reserved sectors + 1st fat + ... nFat + root directory (32) + offset (count found above -2)
 data_starts = num_sectors_before_partition + reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
+offsets = []
+for i in range(len(file_lengths)):
+    if i == 0:
+        start = data_starts
+    else:
+        start = offsets[i-1][0] + file_allocated[i-1]
+    end = start + file_lengths[i]
+    offsets.append([start, end])
+
+test = 1
 
 
 
@@ -167,10 +177,12 @@ for i in range(len(bytes_FAT1)):
 #############################################
 if not os.path.exists("RecoveredFiles"):
     os.mkdir("RecoveredFiles")
-for i in range(len(files) - 1):
-    skip =  reserved_sectors + num_sectors_per_FAT * 2 + 32 + files[i][0] * sectors_per_cluster
-    length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
+for i in range(len(offsets) - 1):
+    # skip =  reserved_sectors + num_sectors_per_FAT * 2 + 32 + files[i][0] * sectors_per_cluster
+    # length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
     #print(f"skip={skip}, count={length}")
+    skip = offsets[i][0]
+    length = offsets[i][1]
     os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.{exts_test[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
     temp = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{exts_test[i]}")
 
