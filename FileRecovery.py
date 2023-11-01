@@ -1,6 +1,7 @@
 import sys
 import os
 import hashlib
+import math
 
 print("Checking Dependencies")
 if len(sys.argv) == 2:
@@ -105,13 +106,36 @@ for i in range(len(bytes_FAT1)):
         break
 
 
+#######################################
+#   Finds File Lengths from root dir  #
+#######################################
+
+file_lengths = []
+file_allocated = []
+i = 1
+while i < len(bytes_root) - 1:
+    # if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
+    if bytes_root[i+1][0] in ['e5','2e','51']:
+        file_size = bytes_root[i+4][12:16]
+        hex_string = file_size[3] + file_size[2] + file_size[1] + file_size[0]
+        file_sizeInt = int(hex_string, 16)
+        total_allocated = math.ceil(file_sizeInt / sectors_per_cluster) * sectors_per_cluster
+        file_lengths.append(file_sizeInt)
+        file_allocated.append(total_allocated)
+        i += 4    
+    else:
+        i += 1
+
+# Start of data section = disk information sectors (sectors before partition) + reserved sectors + 1st fat + ... nFat + root directory (32) + offset (count found above -2)
+data_starts = num_sectors_before_partition + reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
+
 
 
 #############################
 #   Finds Offsets of files  #
 #############################
 count = -count
-files = [(0, offset_FAT1[0])]
+files = [(0, int(offset_FAT1[0]))]
 found_end = False
 for i in range(len(bytes_FAT1)):
     for j in range(0, len(bytes_FAT1[0]), 2):
