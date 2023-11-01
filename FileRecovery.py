@@ -182,7 +182,7 @@ for i in range(len(offsets) - 1):
     # length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
     #print(f"skip={skip}, count={length}")
     skip = offsets[i][0]
-    length = offsets[i][1]
+    length = file_lengths[i]
     os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.{exts_test[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
     temp = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{exts_test[i]}")
 
