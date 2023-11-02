@@ -123,7 +123,7 @@ while i < len(bytes_root) - 2:
         # Get File Name
         file_nameBytes = (bytes_root[i+1][1:11])
         file_nameBytes+= (bytes_root[i+1][14:16])
-        file_nameBytes+= (bytes_root[i+2][0:9])
+        file_nameBytes+= (bytes_root[i+2][0:10])
         
         # the below code is throwing an error because the Auburn file has 96 in the file name, which is not ascii
         # need to somehow skip this (and remove the hex before it as well)
