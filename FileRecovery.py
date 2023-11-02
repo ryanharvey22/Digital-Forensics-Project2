@@ -117,9 +117,9 @@ file_allocated = []
 file_names = []
 file_extensions = []
 i = 1
-while i < len(bytes_root) - 1:
+while i < len(bytes_root) - 2:
     # if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
-    if bytes_root[i+1][0] in ['e5','2e','51']:
+    if bytes_root[i+1][0] in ['e5','2e','51'] and bytes_root[i+2][0] != "ff":
         ext = bytes_root[i+3][8:11]
         file_size = bytes_root[i+4][12:16]
         hex_string = file_size[3] + file_size[2] + file_size[1] + file_size[0]
@@ -134,13 +134,15 @@ while i < len(bytes_root) - 1:
         file_names.append(file_name)
         file_extensions.append(codecs.decode(''.join(ext), "hex").decode("ASCII"))
         i += 4    
+    elif bytes_root[i+2][0] == "ff":
+        i+=2
     else:
         i += 1
 
-# Start of data section = disk information sectors (sectors before partition) + reserved sectors + 1st fat + ... nFat + root directory (32) + offset (count found above -2)
-data_starts = num_sectors_before_partition + reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
+# Start of data section = num_sectors_before_partition +disk information sectors (sectors before partition) + reserved sectors + 1st fat + ... nFat + root directory (32) + offset (count found above -2)
+data_starts =  reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
 # root directory starts at 408
-data_starts = 408 + 32
+data_starts = 448
 offsets = []
 for i in range(len(file_lengths)):
     if i == 0:
