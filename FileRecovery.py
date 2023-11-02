@@ -1,6 +1,5 @@
 import sys
 import os
-import hashlib
 import math
 import codecs
 
@@ -130,8 +129,11 @@ while i < len(bytes_root) - 2:
 
         # Get File Extension
         ext = bytes_root[i+3][8:11]
-        ext = codecs.decode(''.join(ext), "hex").decode("ASCII")
-        file_extensions.append(ext.lower())
+        try:
+            ext = codecs.decode(''.join(ext), "hex").decode("ASCII")
+            file_extensions.append(ext.lower())
+        except:
+            file_extensions.append(f"File{i}")
 
         # Get File size in hex from root dir and convert to an integer
         file_size = bytes_root[i+4][12:16]
@@ -167,7 +169,6 @@ for i in range(len(file_lengths)):
         start = offsets[i-1][0] + (file_allocated[i-1])
     end = start + file_lengths[i]
     offsets.append([start, end])
-
 
 
 #############################
