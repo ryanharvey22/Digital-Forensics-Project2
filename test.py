@@ -14,19 +14,19 @@ file_signatures = [
 ]
 
 sig_heads = [
-    ['00', '00', '01', 'BA'], 
+    ['00', '00', '01', 'ba'], 
     ['25', '50', '44', '46'], 
-    ['42', '4F', '4F', '4B', '4D', '4F', '42', '49'], 
+    ['42', '4F', '4F', '4b', '4d', '4f', '42', '49'], 
     ['47', '49', '46', '38', '37', '61'],
-    ['FF', 'D8', 'FF', 'E0']
+    ['ff', 'd8', 'ff', 'e0']
 ]
 
 sig_foots =  [
-    [0xff, 0xD9],
-    [0xff, 0xD9],
-    [0xff, 0xD9],
-    [0xff, 0xD9],
-    [0xff, 0xD9]
+    ['ff', 'd9'],
+    ['ff', 'd9'],
+    ['ff', 'd9'],
+    ['ff', 'd9'],
+    ['ff', 'd9']
 ]
 
 def hexdump_to_list(disk, start_sector, skip_sector):
@@ -52,7 +52,7 @@ def hexdump_to_list(disk, start_sector, skip_sector):
                 bytes.append('')
     return offsets, bytes
 
-data_section = hexdump_to_list(DISK, 448, 5000)
+data_section = hexdump_to_list(DISK, 448, 97661)
 byte_data = data_section[1]
 print(len(byte_data))
 for w in range(len(sig_heads)):
@@ -60,6 +60,6 @@ for w in range(len(sig_heads)):
     for i in range(len(byte_data)):
         #print("agaisnt ", byte_data[i:i+len(sig_heads[w])])
         if sig_heads[w] == byte_data[i:i+len(sig_heads[w])]:
-            print("found head at", w)
+            print(f"found head {sig_heads[w]} at index", i)
         if sig_foots[w] == byte_data[i:i+len(sig_foots[w])]:
-            print("found foot at ", w)
+            print("found foot at index", i)
