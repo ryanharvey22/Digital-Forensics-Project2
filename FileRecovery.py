@@ -132,7 +132,6 @@ while i < len(bytes_root) - 2:
         ext = bytes_root[i+3][8:11]
         ext = codecs.decode(''.join(ext), "hex").decode("ASCII")
         file_extensions.append(ext.lower())
-        print()
 
         # Get File size in hex from root dir and convert to an integer
         file_size = bytes_root[i+4][12:16]
