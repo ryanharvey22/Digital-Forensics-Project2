@@ -62,30 +62,27 @@ offset_FAT1, bytes_FAT1 = hexdump_to_list(DISK, sFAT, nFAT)
 ###################################
 #   Make List of file extentions  #
 ###################################
-file_signatures = [
-    # (ext, header,..., footer)
-    ("mpg", [0x00, 0x00, 0x01, 0xBA], [0xff, 0xD9]),
-    ("pdf", [0x25, 0x50, 0x44, 0x46], [0xff, 0xD9]),
-    ("bmp", [0x42, 0x4F, 0x4F, 0x4B, 0x4D, 0x4F, 0x42, 0x49], [0xff, 0xD9]),
-    ("gif", [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0xff, 0xD9]),
-    ("jpg", [0xFF, 0xD8, 0xFF, 0xE0], [0xff, 0xD9]),
-    ("docx",[],[0xff, 0xD9]),
-    ("avi", [],[0xff, 0xD9]),
-    ("png", [],[0xff, 0xD9]),
-]
-sroot = reserved_sectors + num_sectors_per_FAT*2
-nroot = 32
-offset_root, bytes_root = hexdump_to_list(DISK, sroot, nroot)
+# file_signatures = [
+#     # (ext, header,..., footer)
+#     ("mpg", [0x00, 0x00, 0x01, 0xBA], [0xff, 0xD9]),
+#     ("pdf", [0x25, 0x50, 0x44, 0x46], [0xff, 0xD9]),
+#     ("bmp", [0x42, 0x4F, 0x4F, 0x4B, 0x4D, 0x4F, 0x42, 0x49], [0xff, 0xD9]),
+#     ("gif", [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0xff, 0xD9]),
+#     ("jpg", [0xFF, 0xD8, 0xFF, 0xE0], [0xff, 0xD9]),
+#     ("docx",[],[0xff, 0xD9]),
+#     ("avi", [],[0xff, 0xD9]),
+#     ("png", [],[0xff, 0xD9]),
+# ]
 
 # lets change this to use the hex signatures, go by four and look for header and footer?
-file_names = []
-for i in range(len(bytes_root)):
-    if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
-        if bytes_root[i+1][0] in ['e5','2e','51']:
-            name, ext = bytes_root[i+1][1:9], bytes_root[i+3][8:11]
-            test = 1
+# file_names = []
+# for i in range(len(bytes_root)):
+#     if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
+#         if bytes_root[i+1][0] in ['e5','2e','51']:
+#             name, ext = bytes_root[i+1][1:9], bytes_root[i+3][8:11]
+#             test = 1
 
-exts_test = ["jpg", "avi", "pdf", "png", "jpg", "bmp", "pdf", "jpg", "jpg", "gif", "avi", "docx", "mpg"]
+# exts_test = ["jpg", "avi", "pdf", "png", "jpg", "bmp", "pdf", "jpg", "jpg", "gif", "avi", "docx", "mpg"]
 
 
 
@@ -112,6 +109,10 @@ for i in range(len(bytes_FAT1)):
 #   Finds File Lengths from root dir  #
 #######################################
 
+sroot = reserved_sectors + num_sectors_per_FAT*2
+nroot = 32
+offset_root, bytes_root = hexdump_to_list(DISK, sroot, nroot)
+
 file_lengths = []
 file_allocated = []
 file_names = []
@@ -120,62 +121,75 @@ i = 1
 while i < len(bytes_root) - 2:
     # if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
     if bytes_root[i+1][0] in ['e5','2e','51'] and bytes_root[i+2][0] != "ff":
-        ext = bytes_root[i+3][8:11]
-        file_size = bytes_root[i+4][12:16]
-        hex_string = file_size[3] + file_size[2] + file_size[1] + file_size[0]
-        file_sizeInt = int(hex_string, 16)
-        total_allocated = math.ceil(file_sizeInt / sectors_per_cluster) * sectors_per_cluster
+        # Get File Name
         file_name = ''.join(bytes_root[i+1][1:16])
+        file_names.append(file_name)
         # the below code is throwing an error because the Auburn file has 96 in the file name, which is not ascii
         # need to somehow skip this (and remove the hex before it as well)
         # file_name = codecs.decode(''.join(file_name), "hex").decode("ASCII")
+
+        # Get File Extension
+        ext = bytes_root[i+3][8:11]
+        ext = codecs.decode(''.join(ext), "hex").decode("ASCII")
+        file_extensions.append(ext.lower())
+
+        # Get File size in hex from root dir and convert to an integer
+        file_size = bytes_root[i+4][12:16]
+        hex_string = file_size[3] + file_size[2] + file_size[1] + file_size[0]
+        file_sizeInt = int(hex_string, 16)
+
+        # Find size in sectors
+        file_sizeInt = math.ceil(file_sizeInt/512)
+        # Find total allocated sectord
+        total_allocated = math.ceil(file_sizeInt / sectors_per_cluster) * sectors_per_cluster
+
         file_lengths.append(file_sizeInt)
         file_allocated.append(total_allocated)
-        file_names.append(file_name)
-        file_extensions.append(codecs.decode(''.join(ext), "hex").decode("ASCII"))
+
+        # Move to next entry
         i += 4    
     elif bytes_root[i+2][0] == "ff":
+        # skip this false entry
         i+=2
     else:
+        # check next line
         i += 1
 
-# Start of data section = num_sectors_before_partition +disk information sectors (sectors before partition) + reserved sectors + 1st fat + ... nFat + root directory (32) + offset (count found above -2)
-data_starts =  reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
-# root directory starts at 408
-data_starts = 448
+# Start of data section = disk information sectors (sectors before partition) + reserved sectors + 1st fat + ... nFat + root directory (32) + offset (count found above -2)
+data_starts =  num_sectors_before_partition + reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
+data_starts = 448 # this is where the data starts (not sure why)
+
 offsets = []
 for i in range(len(file_lengths)):
     if i == 0:
         start = data_starts
     else:
-        start = offsets[i-1][0] + file_allocated[i-1]
+        start = offsets[i-1][0] + (file_allocated[i-1])
     end = start + file_lengths[i]
     offsets.append([start, end])
-
-test = 1
 
 
 
 #############################
 #   Finds Offsets of files  #
 #############################
-count = -count
-files = [(0, int(offset_FAT1[0]))]
-found_end = False
-for i in range(len(bytes_FAT1)):
-    for j in range(0, len(bytes_FAT1[0]), 2):
-        if count >= 0:
-            if ''.join(bytes_FAT1[i][j:j+2]) == "ffff":
-                try:
-                    found_end = bytes_FAT1[i][j+3] == "ff"
-                except:
-                    found_end = bytes_FAT1[i+1][0] == "ff"
-                files.append((count, int(offset_FAT1[i], 16) + j))
-                if found_end:
-                    break
-        count += 1
-    if found_end:
-        break
+# count = -count
+# files = [(0, int(offset_FAT1[0]))]
+# found_end = False
+# for i in range(len(bytes_FAT1)):
+#     for j in range(0, len(bytes_FAT1[0]), 2):
+#         if count >= 0:
+#             if ''.join(bytes_FAT1[i][j:j+2]) == "ffff":
+#                 try:
+#                     found_end = bytes_FAT1[i][j+3] == "ff"
+#                 except:
+#                     found_end = bytes_FAT1[i+1][0] == "ff"
+#                 files.append((count, int(offset_FAT1[i], 16) + j))
+#                 if found_end:
+#                     break
+#         count += 1
+#     if found_end:
+#         break
 
 
 
@@ -189,13 +203,14 @@ for i in range(len(offsets) - 1):
     # skip =  reserved_sectors + num_sectors_per_FAT * 2 + 32 + files[i][0] * sectors_per_cluster
     # length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
     #print(f"skip={skip}, count={length}")
+
     skip = offsets[i][0]
     length = file_lengths[i]
-    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.{exts_test[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
-    temp = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{exts_test[i]}")
+    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.{file_extensions[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
+    temp = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{file_extensions[i]}")
 
-    shasum = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{exts_test[i]}").read().split()[0]
-    print(f"\nFile{i+1}.{exts_test[i]}, Start Offset: {skip}, End Offset: {skip+length}")
+    shasum = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{file_extensions[i]}").read().split()[0]
+    print(f"\nFile{i+1}.{file_extensions[i]}, Start Offset: {skip}, End Offset: {skip+length}")
     print("SHA-256: ", shasum)
     
 print()
