@@ -1,18 +1,32 @@
 import os
-import sys
-import time
 
-DISK = sys.argv[1]
+DISK = "Project2.dd"
 
-sigs = [
-    "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A",
-    "\x25\x50\x44\x46",
-    "\x42\x4D",
-    "\x47\x49\x46\x38\x37\x61",
-    "\x49\x46\x38\x39\x61",
-    "\xFF\xD8\xff\xE0",
-    "\x50\x4B\x03\x04\x14\x00\x06\x00",
-    "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"
+file_signatures = [
+    ("mpg", ['00', '00', 0x01, 0xBA], [0xff, 0xD9]),
+    ("pdf", [0x25, 0x50, 0x44, 0x46], [0xff, 0xD9]),
+    ("bmp", [0x42, 0x4F, 0x4F, 0x4B, 0x4D, 0x4F, 0x42, 0x49], [0xff, 0xD9]),
+    ("gif", [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0xff, 0xD9]),
+    ("jpg", [0xFF, 0xD8, 0xFF, 0xE0], [0xff, 0xD9]),
+    ("docx",[],[0xff, 0xD9]),
+    ("avi", [],[0xff, 0xD9]),
+    ("png", [],[0xff, 0xD9]),
+]
+
+sig_heads = [
+    ['00', '00', '01', 'BA'], 
+    ['25', '50', '44', '46'], 
+    ['42', '4F', '4F', '4B', '4D', '4F', '42', '49'], 
+    ['47', '49', '46', '38', '37', '61'],
+    ['FF', 'D8', 'FF', 'E0']
+]
+
+sig_foots =  [
+    [0xff, 0xD9],
+    [0xff, 0xD9],
+    [0xff, 0xD9],
+    [0xff, 0xD9],
+    [0xff, 0xD9]
 ]
 
 def hexdump_to_list(disk, start_sector, skip_sector):
@@ -20,40 +34,32 @@ def hexdump_to_list(disk, start_sector, skip_sector):
     bytes = []
     offsets = []
     for i, line in enumerate(output):
+
         s = line.split()
         if len(s) > 1:
-            bytes.append([])
             for x in s:
                 if len(x) > 4:
                     offsets.append(x)
                 elif len(x) == 4:
-                    bytes[i].append(x[2:4])
-                    bytes[i].append(x[0:2])
+                    bytes.append(x[2:4])
+                    bytes.append(x[0:2])
                 else:
                     print("Error processing bytes")
                     exit(1)
         elif len(s) == 1:
             offsets.append(s[0])
-            bytes.append(['']*16)
+            for i in range(16):
+                bytes.append('')
     return offsets, bytes
 
-offsets, bytes_boot = hexdump_to_list(DISK, 0, 1)
-reserved_sectors = int(''.join(bytes_boot[0][14:][::-1]), 16)
-num_secotrs_per_FAT = num_sectors_per_FAT = int(''.join(bytes_boot[1][6:8][::-1]), 16)
-num_FATs = int(bytes_boot[1][0], 16)
-bytes_per_sector = int(''.join(bytes_boot[0][11:13][::-1]), 16)
-num_sectors = int(''.join(bytes_boot[1][3:5][::-1]), 16)
-if num_sectors == 0:
-    num_sectors = 65535
-
-start_of_data = reserved_sectors + num_sectors_per_FAT * num_FATs + 32
-
-for i in range(len(sigs)):
-    os.system(f"dd if={DISK} bs={bytes_per_sector} skip={start_of_data} count={num_sectors-start_of_data} status=none | binwalk -R \"{sigs[i]}\" -")
-    time.sleep(3)
-
-# put DATA into combined file
-#start_of_data = reserved_sectors + num_sectors_per_FAT * 2 + 32
-#os.system(f"dd if={DISK} of=combinedFiles bs={bytes_per_sector} skip={start_of_data} count={num_sectors-start_of_data} status=none")
-
-# 8 + 400 + 32 :: dd if=Project2.dd of=combinedFiles bs=512 skip=440 count= status=none
+data_section = hexdump_to_list(DISK, 448, 5000)
+byte_data = data_section[1]
+print(len(byte_data))
+for w in range(len(sig_heads)):
+    #print("checking: ", sig_heads[w])
+    for i in range(len(byte_data)):
+        #print("agaisnt ", byte_data[i:i+len(sig_heads[w])])
+        if sig_heads[w] == byte_data[i:i+len(sig_heads[w])]:
+            print("found head at", w)
+        if sig_foots[w] == byte_data[i:i+len(sig_foots[w])]:
+            print("found foot at ", w)
