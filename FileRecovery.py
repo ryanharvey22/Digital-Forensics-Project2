@@ -121,7 +121,9 @@ while i < len(bytes_root) - 2:
     # if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
     if bytes_root[i+1][0] in ['e5','2e','51'] and bytes_root[i+2][0] != "ff":
         # Get File Name
-        file_nameBytes = (bytes_root[i+1][1:16])
+        file_nameBytes = (bytes_root[i+1][1:11])
+        file_nameBytes+= (bytes_root[i+1][14:16])
+        file_nameBytes+= (bytes_root[i+2][0:9])
         
         # the below code is throwing an error because the Auburn file has 96 in the file name, which is not ascii
         # need to somehow skip this (and remove the hex before it as well)
@@ -140,7 +142,7 @@ while i < len(bytes_root) - 2:
                 index+=1
                 pass
 
-        file_names.append(file_name)
+        file_names.append(file_name.split('.')[0])
 
         # Get File Extension
         ext = bytes_root[i+3][8:11]
