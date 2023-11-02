@@ -6,9 +6,9 @@ file_signatures = [
     ("jpg", ['ff', 'd8', 'ff', 'e0'], ['ff', 'd9']),
     ("jpg", ['ff', 'd8', 'ff', 'e1'], ['ff', 'd9']),
     ("jpg", ['ff', 'd8', 'ff', 'e8'], ['ff', 'd9']),
-    #("jpg", ['ff', 'd8'], ['ff', 'd9']),
+    ("jpg", ['ff', 'd8'], ['ff', 'd9']),
     ("mpg", ['00', '00', '01', 'ba'], ['00', '00', '01', 'b9']),
-    ("mpg", ['00', '00', '01', 'bX'], ['00', '00', '01', 'b7']),
+    ("mpg", ['00', '00', '01', 'b%s'], ['00', '00', '01', 'b7']),
     ("gif", ['47', '49', '46', '38', '37', '61'], ['00', '3b']),
     ("gif", ['47', '49', '46', '38', '39', '61'], ['00', '3b']),
     ("docx",['50', '4b', '03', '04', '14', '00', '06', '00'],['50', '4b', '05', '06']),
@@ -63,23 +63,30 @@ while i < len(byte_data) - 9:
             em = False
             print(f"head {file_signatures[w]} at sector", int(i/512))
             start_offsets.append(int(i/512))
-            j = i
-            while j < len(byte_data) - 3:
-                
-                if len(file_signatures[w][2]) > 0:
-                    if file_signatures[w][2] == byte_data[j:j+len(file_signatures[w][2])]:
-                        print(f"footer {file_signatures[w]} at {int(j/512)}")
-                        end_offsets.append(int(j/512))
+
+            if file_signatures[w][0] == "avi":
+                s = int("".join(byte_data[i-5:i-1][::-1]), 16)
+                end_offsets.append(i + s)
+                i = i + s
+            else:
+                j = i
+                while j < len(byte_data) - 3:
+                    
+                    if len(file_signatures[w][2]) > 0:
+                        if file_signatures[w][2] == byte_data[j:j+len(file_signatures[w][2])]:
+                            print(f"footer {file_signatures[w]} at {int(j/512)}")
+                            end_offsets.append(int(j/512))
+                            break
+                    else:
+                        em = True
                         break
-                else:
-                    em = True
-                    break
-                j = j + 1
-            i = j
+                    j = j + 1
+                i = j
     i = i + 1
 
 for x in range(len(start_offsets)):
     print(start_offsets[x], "->", end_offsets[x])
 
 
-        
+# jpg
+# bmp
