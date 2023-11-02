@@ -121,11 +121,26 @@ while i < len(bytes_root) - 2:
     # if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
     if bytes_root[i+1][0] in ['e5','2e','51'] and bytes_root[i+2][0] != "ff":
         # Get File Name
-        file_name = ''.join(bytes_root[i+1][1:16])
-        file_names.append(file_name)
+        file_nameBytes = (bytes_root[i+1][1:16])
+        
         # the below code is throwing an error because the Auburn file has 96 in the file name, which is not ascii
         # need to somehow skip this (and remove the hex before it as well)
         # file_name = codecs.decode(''.join(file_name), "hex").decode("ASCII")
+        file_name = ""
+        index = 0
+        while index < len(file_nameBytes)-1:
+            try:
+                string = file_nameBytes[index]
+                newString = codecs.decode(string, "hex").decode("ASCII")
+                if "0f" not in string:
+                    # test = newString.contains("f")
+                    file_name += newString
+                index +=2
+            except:
+                index+=1
+                pass
+
+        file_names.append(file_name)
 
         # Get File Extension
         ext = bytes_root[i+3][8:11]
@@ -200,18 +215,18 @@ for i in range(len(file_lengths)):
 #############################################
 if not os.path.exists("RecoveredFiles"):
     os.mkdir("RecoveredFiles")
-for i in range(len(offsets) - 1):
+for i in range(len(offsets)):
     # skip =  reserved_sectors + num_sectors_per_FAT * 2 + 32 + files[i][0] * sectors_per_cluster
     # length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
     #print(f"skip={skip}, count={length}")
 
     skip = offsets[i][0]
     length = file_lengths[i]
-    os.system(f"dd if={DISK} of=RecoveredFiles/File{i+1}.{file_extensions[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
-    temp = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{file_extensions[i]}")
-
-    shasum = os.popen(f"shasum -a 256 RecoveredFiles/File{i+1}.{file_extensions[i]}").read().split()[0]
-    print(f"\nFile{i+1}.{file_extensions[i]}, Start Offset: {skip}, End Offset: {skip+length}")
+    file_name = file_names[i]
+    os.system(f"dd if={DISK} of=RecoveredFiles/{file_name}.{file_extensions[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
+    temp = os.popen(f"shasum -a 256 RecoveredFiles/{file_name}.{file_extensions[i]}")
+    shasum = os.popen(f"shasum -a 256 RecoveredFiles/{file_name}.{file_extensions[i]}").read().split()[0]
+    print(f"\n{file_name}.{file_extensions[i]}, Start Offset: {skip}, End Offset: {skip+length}")
     print("SHA-256: ", shasum)
     
 print()
