@@ -57,37 +57,6 @@ nFAT = num_sectors_per_FAT
 offset_FAT1, bytes_FAT1 = hexdump_to_list(DISK, sFAT, nFAT)
 
 
-
-###################################
-#   Make List of file extentions  #
-###################################
-# file_signatures = [
-#     # (ext, header,..., footer)
-#     ("mpg", [0x00, 0x00, 0x01, 0xBA], [0xff, 0xD9]),
-#     ("pdf", [0x25, 0x50, 0x44, 0x46], [0xff, 0xD9]),
-#     ("bmp", [0x42, 0x4F, 0x4F, 0x4B, 0x4D, 0x4F, 0x42, 0x49], [0xff, 0xD9]),
-#     ("gif", [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0xff, 0xD9]),
-#     ("jpg", [0xFF, 0xD8, 0xFF, 0xE0], [0xff, 0xD9]),
-#     ("docx",[],[0xff, 0xD9]),
-#     ("avi", [],[0xff, 0xD9]),
-#     ("png", [],[0xff, 0xD9]),
-# ]
-
-# lets change this to use the hex signatures, go by four and look for header and footer?
-# file_names = []
-# for i in range(len(bytes_root)):
-#     if ''.join(bytes_root[i][14:]) == '0000':  # EOS # 1-9, 9-12
-#         if bytes_root[i+1][0] in ['e5','2e','51']:
-#             name, ext = bytes_root[i+1][1:9], bytes_root[i+3][8:11]
-#             test = 1
-
-# exts_test = ["jpg", "avi", "pdf", "png", "jpg", "bmp", "pdf", "jpg", "jpg", "gif", "avi", "docx", "mpg"]
-
-
-
-
-
-
 ##############################################################
 #   Finds and sets the starting offset for the data section  #
 ##############################################################
@@ -125,9 +94,6 @@ while i < len(bytes_root) - 2:
         file_nameBytes+= (bytes_root[i+1][14:16])
         file_nameBytes+= (bytes_root[i+2][0:10])
         
-        # the below code is throwing an error because the Auburn file has 96 in the file name, which is not ascii
-        # need to somehow skip this (and remove the hex before it as well)
-        # file_name = codecs.decode(''.join(file_name), "hex").decode("ASCII")
         file_name = ""
         index = 0
         while index < len(file_nameBytes)-1:
@@ -135,7 +101,6 @@ while i < len(bytes_root) - 2:
                 string = file_nameBytes[index]
                 newString = codecs.decode(string, "hex").decode("ASCII")
                 if "0f" not in string:
-                    # test = newString.contains("f")
                     file_name += newString
                 index +=2
             except:
@@ -175,8 +140,7 @@ while i < len(bytes_root) - 2:
         i += 1
 
 # Start of data section = disk information sectors (sectors before partition) + reserved sectors + 1st fat + ... nFat + root directory (32) + offset (count found above -2)
-data_starts =  num_sectors_before_partition + reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
-data_starts = 448 # this is where the data starts (not sure why)
+data_starts =   8 + reserved_sectors + (num_sectors_per_FAT * num_FATs) + 32 + (sectors_per_cluster * (count -2))
 
 offsets = []
 for i in range(len(file_lengths)):
@@ -188,47 +152,47 @@ for i in range(len(file_lengths)):
     offsets.append([start, end])
 
 
-#############################
-#   Finds Offsets of files  #
-#############################
-# count = -count
-# files = [(0, int(offset_FAT1[0]))]
-# found_end = False
-# for i in range(len(bytes_FAT1)):
-#     for j in range(0, len(bytes_FAT1[0]), 2):
-#         if count >= 0:
-#             if ''.join(bytes_FAT1[i][j:j+2]) == "ffff":
-#                 try:
-#                     found_end = bytes_FAT1[i][j+3] == "ff"
-#                 except:
-#                     found_end = bytes_FAT1[i+1][0] == "ff"
-#                 files.append((count, int(offset_FAT1[i], 16) + j))
-#                 if found_end:
-#                     break
-#         count += 1
-#     if found_end:
-#         break
-
-
-
 
 #############################################
 #   Displaying Results to the command line  #
 #############################################
+file_signatures = [
+    ("jpg", ['ff', 'd8', 'ff', 'e0'], ['ff', 'd9']),
+    ("jpg", ['ff', 'd8', 'ff', 'e1'], ['ff', 'd9']),
+    ("jpg", ['ff', 'd8', 'ff', 'e8'], ['ff', 'd9']),
+    ("jpg", ['ff', 'd8'], ['ff', 'd9']),
+    ("mpg", ['00', '00', '01', 'ba'], ['00', '00', '01', 'b9']),
+    ("mpg", ['00', '00', '01', 'b3'], ['00', '00', '01', 'b7']),
+    ("gif", ['47', '49', '46', '38', '37', '61'], ['00', '3b']),
+    ("gif", ['47', '49', '46', '38', '39', '61'], ['00', '3b']),
+    ("docx",['50', '4b', '03', '04', '14', '00', '06', '00'],['50', '4b', '05', '06']),
+    ("avi", ['41', '56', '49', '20', '4c', '49', '53', '54'], []),
+    ("png", ['89', '50', '4e', '47', '0d', '0a', '1a', '0a'], ['49', '45', '4e', '44', 'ae', '42', '60', '82']),
+    ("pdf", ['25', '50', '44', '46'], ['25', '25', '45', '4f', '46']),
+    ("bmp", ['42','4d'], []),
+]
+
 if not os.path.exists("RecoveredFiles"):
     os.mkdir("RecoveredFiles")
 for i in range(len(offsets)):
-    # skip =  reserved_sectors + num_sectors_per_FAT * 2 + 32 + files[i][0] * sectors_per_cluster
-    # length = (files[i+1][0] - files[i][0]) * sectors_per_cluster
-    #print(f"skip={skip}, count={length}")
-
     skip = offsets[i][0]
     length = file_lengths[i]
     file_name = file_names[i]
-    os.system(f"dd if={DISK} of=RecoveredFiles/{file_name}.{file_extensions[i]} bs={bytes_per_sector} skip={skip} count={length} status=none")
-    temp = os.popen(f"shasum -a 256 RecoveredFiles/{file_name}.{file_extensions[i]}")
-    shasum = os.popen(f"shasum -a 256 RecoveredFiles/{file_name}.{file_extensions[i]}").read().split()[0]
-    print(f"\n{file_name}.{file_extensions[i]}, Start Offset: {skip}, End Offset: {skip+length}")
+    print()
+    signatureOffsets, bytes_signature = hexdump_to_list(DISK, skip, 1)
+    print(f"File Signature: {bytes_signature[0]}")  
+    index = 0
+    matches = ""
+    while index < len(file_signatures):
+        if (''.join(file_signatures[index][1]) in ''.join(bytes_signature[0])):
+            matches = file_signatures[index][0]
+            index = len(file_signatures)
+        index+=1
+
+    os.system(f"dd if={DISK} of=RecoveredFiles/{file_name}.{matches} bs={bytes_per_sector} skip={skip} count={length} status=none")
+    temp = os.popen(f"shasum -a 256 RecoveredFiles/{file_name}.{matches}")
+    shasum = os.popen(f"shasum -a 256 RecoveredFiles/{file_name}.{matches}").read().split()[0]
+    print(f"{file_name}.{matches}, Start Offset: {skip}, End Offset: {skip+length}")
     print("SHA-256: ", shasum)
     
 print()
